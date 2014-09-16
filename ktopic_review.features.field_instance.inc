@@ -210,13 +210,28 @@ function ktopic_review_field_default_field_instances() {
     'entity_type' => 'node',
     'field_name' => 'og_ktopic_ref',
     'label' => 'Topic',
-    'required' => FALSE,
+    'required' => 1,
     'settings' => array(
+      'behaviors' => array(
+        'og_widget' => array(
+          'access_override' => 0,
+          'admin' => array(
+            'widget_type' => 'entityreference_autocomplete',
+          ),
+          'default' => array(
+            'widget_type' => 'options_select',
+          ),
+          'status' => TRUE,
+        ),
+      ),
       'user_register_form' => FALSE,
     ),
     'widget' => array(
+      'active' => 0,
       'module' => 'og',
-      'settings' => array(),
+      'settings' => array(
+        'multiple_value_widget' => 'table',
+      ),
       'type' => 'og_complex',
       'weight' => 0,
     ),
