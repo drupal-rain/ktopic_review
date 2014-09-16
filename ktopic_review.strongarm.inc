@@ -71,7 +71,7 @@ function ktopic_review_strongarm() {
   $strongarm->disabled = FALSE; /* Edit this to true to make a default strongarm disabled initially */
   $strongarm->api_version = 1;
   $strongarm->name = 'pathauto_node_kreview_pattern';
-  $strongarm->value = '[node:og-ktopic-ref:url:path]-review-[node:created:custom:Y]-[node:created:custom:m]-[node:created:custom:d]';
+  $strongarm->value = '';
   $export['pathauto_node_kreview_pattern'] = $strongarm;
 
   return $export;

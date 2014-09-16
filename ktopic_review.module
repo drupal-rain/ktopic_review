@@ -28,36 +28,119 @@ function ktopic_review_url_inbound_alter(&$path, $original_path, $path_language)
 */
 
 /**
- * @implements hook_node_info_alter().
- */
-function ktopic_review_node_info_alter(&$items) {
-  //$items['kreview']['base'] = 'ktopic_review';
-}
-
-/**
  * @implements hook_node_insert().
  */
 function ktopic_review_node_insert($node) {
-  ktopic_review_update_path_alias($node);
+  ktopic_review_new_path_alias($node);
+  ktopic_review_main_path_alias($node);
 }
 
 /**
  * @implements hook_node_update().
  */
 function ktopic_review_node_update($node) {
-  ktopic_review_update_path_alias($node);
+  ktopic_review_mod_path_alias($node);
+  ktopic_review_main_path_alias($node);
 }
+
+// @todo Deal with deletion.
+// hook_node_delete().
 
 // Assign the /<ktopic>-review alias to the latest node<kreview>.
 // If it's published and creation date is the latest.
-function ktopic_review_update_path_alias($node) {
-  if ($node->type == 'kreview') {
-    if ($node->status == NODE_PUBLISHED) {
-      $kreviews = ktopic_review_get_reviews();
-
+// 1. Remove the old on if exists.
+// 2. Create path alias.
+// @issue If use hook_node_insert(), hook_node_update() would cause the node_form error.
+function ktopic_review_main_path_alias($kreview) {
+  if ($kreview->type == 'kreview') {
+    if ($kreview->status == NODE_PUBLISHED) {
+      $ktopic = ktopic_review_kreview_get_topic($kreview);
+      $kreviews = ktopic_review_ktopic_get_reviews($ktopic);
+      $kreview_last = ktopic_review_ktopic_get_last_review($ktopic);
+      if (
+        $kreview_last == NULL
+        || $kreview_last->nid == $kreview->nid
+        || $kreview->created > $kreview_last->created
+      ) {
+        $uri = entity_uri('node', $kreview);
+        $lang = entity_language('node', $kreview);
+        // @issue Any issue in node creation?
+        $path_alias = drupal_get_path_alias($uri['path']);
+        $want_path_alias = ktopic_ktopic_name($ktopic) . '-review';
+        $path_source = drupal_lookup_path('source', $want_path_alias);
+        $want_source = $uri['path'];
+        if ($want_source != $path_source) {
+          $path = array(
+            'source' => $want_source,
+            'alias' => $want_path_alias,
+          );
+          $path_old = path_load(
+            array(
+              'alias' => $want_path_alias,
+            )
+          );
+          // If old path alias exists, we delete it first.
+          if ($path_old) {
+            // $path['pid'] = $path_old['pid'];
+            path_delete($path_old);
+          }
+          // If save before pathauto, globalredirect will use /<ktopic>-review-<date>
+          // If save after pathauto,globalredirect will use /<ktopic>-review
+          path_save($path);
+        }
+      }
     }
   }
 }
+
+// For new kreview.
+// @issue It may be better to not use pathauto here.
+// [node:og-ktopic-ref:url:path]-review-[node:created:custom:Y]-[node:created:custom:m]-[node:created:custom:d]
+// @todo Same day review url.
+function ktopic_review_new_path_alias($kreview) {
+  if ($kreview->type == 'kreview' && $kreview->is_new) {
+    $ktopic = ktopic_review_kreview_get_topic($kreview);
+    $kreview_uri = entity_uri('node', $kreview);
+    $ktopic_uri = entity_uri('node', $ktopic);
+    $ktopic_path_alias = drupal_get_path_alias($ktopic_uri['path']);
+    $want_source = $kreview_uri['path'];
+    $want_alias = $ktopic_path_alias . '-review-' . date('Y-m-d', $kreview->created);
+    $path = array(
+      'source' => $want_source,
+      'alias' => $want_alias,
+    );
+    path_save($path);
+  }
+}
+
+// For update kreview.
+function ktopic_review_mod_path_alias($kreview) {
+  if ($kreview->type == 'kreview' && !$kreview->is_new) {
+    $ktopic = ktopic_review_kreview_get_topic($kreview);
+    $kreview_uri = entity_uri('node', $kreview);
+    $ktopic_uri = entity_uri('node', $ktopic);
+    $ktopic_path_alias = drupal_get_path_alias($ktopic_uri['path']);
+    $want_source = $kreview_uri['path'];
+    $want_alias = $ktopic_path_alias . '-review-' . date('Y-m-d', $kreview->created);
+
+    // Delete old path aliases.
+    // @todo Any better solution?
+    $result= db_query('SELECT * FROM {url_alias} ua WHERE source = :source', array(':source' => $want_source));
+    foreach($result as $value) {
+      path_delete((array)$value);
+    }
+
+    // Save the new path every time.
+    $path = array(
+      'source' => $want_source,
+      'alias' => $want_alias,
+    );
+    path_save($path);
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Ktopic Function
 
 /**
  * Try to fetch a node<ktopic> with the request path.
@@ -109,6 +192,9 @@ function ktopic_review_ktopic_get_last_review($ktopic) {
   return $kreview;
 }
 
+// ----------------------------------------------------------------------------
+// Kreview Function
+
 function ktopic_review_kreview_is_last_review($kreview) {
   $ktopic = ktopic_review_kreview_get_topic($kreview);
   $kreview_last = ktopic_review_ktopic_get_last_review($ktopic);
@@ -118,9 +204,9 @@ function ktopic_review_kreview_is_last_review($kreview) {
 
 // Fetch the host topic.
 function ktopic_review_kreview_get_topic($kreview) {
-  $lang = entity_language('node', $kreview);
+  $lang = $kreview->language;
 
-  return node_load($kreview->og_ktopic_ref[$lang][0]);
+  return node_load($kreview->og_ktopic_ref[$lang][0]['target_id']);
 }
 
 // Fetch related reviews.
