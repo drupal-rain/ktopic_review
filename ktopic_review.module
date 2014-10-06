@@ -66,7 +66,7 @@ function ktopic_review_main_path_alias($kreview) {
         $lang = entity_language('node', $kreview);
         // @issue Any issue in node creation?
         $path_alias = drupal_get_path_alias($uri['path']);
-        $want_path_alias = ktopic_ktopic_name($ktopic) . '-review';
+        $want_path_alias = ktopic_get_name($ktopic) . '-review';
         $path_source = drupal_lookup_path('source', $want_path_alias);
         $want_source = $uri['path'];
         if ($want_source != $path_source) {
